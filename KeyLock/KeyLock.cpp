@@ -5,13 +5,15 @@
 #include <shlwapi.h>
 
 #include <fstream>
-#include <memory>
+#include <unordered_set>
 
 #pragma comment(lib, "gdiplus.lib")
 #pragma comment(lib, "winmm.lib")
 #pragma comment(lib, "shlwapi.lib")
 
 #define PACKAGE_NAME TEXT("HNSFNETKL")
+
+#define PROP_VKCODE TEXT("VKCODE")
 
 #define CONFIG_NAME TEXT("AppSettings.ini")
 
@@ -22,14 +24,14 @@
 // 取消开机启动ID
 #define IDACTION_CANCEL (WM_USER + 2)
 
-// 显示超时事件ID
-#define IDEVENT_DISPLAY (WM_USER + 1)
-// 按键扫描事件ID
-#define IDEVENT_SCANNING (WM_USER + 2)
-// 大写超时事件ID
-#define IDCAPS_TIMEOUT (WM_USER + 3)
 // 数字超时事件ID
-#define IDNUM_TIMEOUT (WM_USER + 4)
+#define IDNUM_TIMEOUT (WM_USER + 1)
+// 大写超时事件ID
+#define IDCAPS_TIMEOUT (WM_USER + 2)
+// 显示超时事件ID
+#define IDSHOW_TIMEOUT (WM_USER + 3)
+// 键盘钩子处理事件ID
+#define IDHOOK_TIMEOUT (WM_USER + 4)
 
 // 数字锁定托盘图标ID
 #define IDNOTIFY_NUMLOCK (WM_USER + 1)
@@ -37,9 +39,9 @@
 #define IDNOTIFY_CAPSLOCK (WM_USER + 2)
 
 // 数字锁定托盘事件ID
-#define UMNOTIFY_NUMLOCK (WM_USER + 1)
+#define UMNOTIFY_NUMLOCK (WM_APP + 1)
 // 大写锁定托盘事件ID
-#define UMNOTIFY_CAPSLOCK (WM_USER + 2)
+#define UMNOTIFY_CAPSLOCK (WM_APP + 2)
 
 // 秒数转毫秒数
 #define MILISECONDS(SECONDS) (SECONDS * 1000)
@@ -72,12 +74,64 @@ static TCHAR gszWorkDir[MAX_PATH];
 // 临时配置文件路径（需要清理）
 static CString gstrTempConfigPath;
 
-// ALT 已按下
-static bool gbAltDown = false;
-// ALT+1 已按下
-static bool gbAlt1Down = false;
-// ALT+2 已按下
-static bool gbAlt2Down = false;
+static int gnLastVkCode;
+
+void KeyLockLogic(int vkCode) {
+  bool altDown = (GetAsyncKeyState(VK_MENU) & 0x8000) != 0;
+
+  // 使用 GetKeyState 更可靠（钩子场景下推荐）
+  SHORT wNumLockSet = (GetKeyState(VK_NUMLOCK) & 0x0001) ? LSFW_LOCK : LSFW_UNLOCK;
+  SHORT wCapsLockSet = (GetKeyState(VK_CAPITAL) & 0x0001) ? LSFW_LOCK : LSFW_UNLOCK;
+
+  if (gNumLockSetup.IDEvent) {
+    KillTimer(ghWndIndicator, gNumLockSetup.IDEvent);
+    gNumLockSetup.IDEvent = 0;
+  }
+  if (gCapsLockSetup.IDEvent) {
+    KillTimer(ghWndIndicator, gCapsLockSetup.IDEvent);
+    gCapsLockSetup.IDEvent = 0;
+  }
+
+  if (altDown && vkCode == '1') {
+    DrawImageIcon(&gNumLockSetup);
+    return;
+  }
+  if (altDown && vkCode == '2') {
+    DrawImageIcon(&gCapsLockSetup);
+    return;
+  }
+
+  if (wNumLockSet == LSFW_UNLOCK && gNumLockSetup.Timeout > 0) {
+    gNumLockSetup.IDEvent = SetTimer(ghWndIndicator, IDNUM_TIMEOUT, MILISECONDS(gNumLockSetup.Timeout), nullptr);
+  }
+  if (vkCode == VK_NUMLOCK) {
+    DrawImageIcon(&gNumLockSetup, wNumLockSet);
+  }
+
+  if (wCapsLockSet == LSFW_LOCK && gCapsLockSetup.Timeout > 0) {
+    gCapsLockSetup.IDEvent = SetTimer(ghWndIndicator, IDCAPS_TIMEOUT, MILISECONDS(gCapsLockSetup.Timeout), nullptr);
+  }
+  if (vkCode == VK_CAPITAL) {
+    DrawImageIcon(&gCapsLockSetup, wCapsLockSet);
+  }
+}
+
+LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
+  if (nCode == HC_ACTION) {
+    auto vkCode = ((KBDLLHOOKSTRUCT*) lParam)->vkCode;
+    auto flags = ((KBDLLHOOKSTRUCT*) lParam)->flags;
+
+    if (wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN) {
+      // if (!(flags & LLKHF_INJECTED)) {
+      // KillTimer(ghWndIndicator, IDHOOK_TIMEOUT);
+      SetProp(ghWndIndicator, PROP_VKCODE, (HANDLE) (INT_PTR) vkCode);
+      SetTimer(ghWndIndicator, IDHOOK_TIMEOUT, 10, nullptr);
+      // }
+    }
+  }
+
+  return CallNextHookEx(ghKeyboardHook, nCode, wParam, lParam);
+}
 
 // 从资源中提取AppSettings.ini到临时目录，并返回配置文件路径
 // 如果本地存在AppSettings.ini则返回本地路径，否则从资源中提取
@@ -164,7 +218,7 @@ VOID CleanupTrayIcons(RUNTIMEPARAMS* pRuntimeParams) {
 VOID CleanupResources() {
   CleanupTrayIcons(&gNumLockSetup);
   CleanupTrayIcons(&gCapsLockSetup);
-  
+
   // ⭐ 主动释放 GDI+ 相关对象，确保在 GdiplusShutdown 之前释放
   gNumLockSetup.LockDeskImage.reset();
   gNumLockSetup.UnlockDeskImage.reset();
@@ -175,52 +229,47 @@ VOID CleanupResources() {
     DestroyMenu(ghMenuIndicator);
     ghMenuIndicator = nullptr;
   }
-  
+
+  if (ghKeyboardHook) {
+    UnhookWindowsHookEx(ghKeyboardHook);
+    ghKeyboardHook = nullptr;
+  }
+
   // 删除临时配置文件
   if (!gstrTempConfigPath.IsEmpty() && PathFileExists(gstrTempConfigPath)) {
     DeleteFile(gstrTempConfigPath);
     gstrTempConfigPath.Empty();
   }
-  
+
   // 注销窗口类
   UnregisterClass(TEXT("KEYLOCK"), GetModuleHandle(nullptr));
 }
 
-VOID DrawImageIcon(RUNTIMEPARAMS* pRuntimeParams, const SHORT wCurrentLockSet) {
+VOID DrawImageIcon(RUNTIMEPARAMS* pRuntimeParams, SHORT wCurrentLockSet) {
   Gdiplus::Image* pDeskImage = nullptr;
   NOTIFYICONDATA* pTrayIcon = nullptr;
-  const SHORT wLastLockSet = pRuntimeParams->LockSet;
-  CString strSoundEffect;
-  if (wCurrentLockSet) {
-    if (wCurrentLockSet == LSFW_LOCK && wLastLockSet != LSFW_LOCK) {
-      pRuntimeParams->LockSet = LSFW_LOCK;
-      pDeskImage = pRuntimeParams->LockDeskImage.get();
-      pTrayIcon = &pRuntimeParams->LockTrayIcon;
-      strSoundEffect = pRuntimeParams->SoundOn;
-    } else if (wCurrentLockSet == LSFW_UNLOCK && wLastLockSet != LSFW_UNLOCK) {
-      pRuntimeParams->LockSet = LSFW_UNLOCK;
-      pDeskImage = pRuntimeParams->UnlockDeskImage.get();
-      pTrayIcon = &pRuntimeParams->UnlockTrayIcon;
-      strSoundEffect = pRuntimeParams->SoundOff;
-    } else {
-      return;
-    }
+  SHORT wTargetLockSet = wCurrentLockSet;
+  if (wCurrentLockSet == 0) {
+    wTargetLockSet = (pRuntimeParams == &gNumLockSetup) ? (GetAsyncKeyState(VK_NUMLOCK) & 1 ? LSFW_LOCK : LSFW_UNLOCK)
+                                                        : (GetAsyncKeyState(VK_CAPITAL) & 1 ? LSFW_LOCK : LSFW_UNLOCK);
+  } else if (pRuntimeParams->LockSet == wCurrentLockSet) {
+    return; // 状态没变，直接返回
   } else {
-    switch (wLastLockSet) {
-      case LSFW_LOCK:
-        pDeskImage = pRuntimeParams->LockDeskImage.get();
-        pTrayIcon = &pRuntimeParams->LockTrayIcon;
-        break;
-      case LSFW_UNLOCK:
-        pDeskImage = pRuntimeParams->UnlockDeskImage.get();
-        pTrayIcon = &pRuntimeParams->UnlockTrayIcon;
-        break;
-      default:
-        return;
-    }
+    pRuntimeParams->LockSet = wCurrentLockSet; // 先更新状态
   }
 
-  if (wCurrentLockSet) { // 单击托盘不播放音效
+  CString strSoundEffect;
+  if (wTargetLockSet == LSFW_LOCK) {
+    pDeskImage = pRuntimeParams->LockDeskImage.get();
+    pTrayIcon = &pRuntimeParams->LockTrayIcon;
+    strSoundEffect = pRuntimeParams->SoundOn;
+  } else {
+    pDeskImage = pRuntimeParams->UnlockDeskImage.get();
+    pTrayIcon = &pRuntimeParams->UnlockTrayIcon;
+    strSoundEffect = pRuntimeParams->SoundOff;
+  }
+
+  if (wCurrentLockSet && !pRuntimeParams->EnableMute) { // 单击托盘不播放音效
     if (strSoundEffect.IsEmpty()) {
       switch (wCurrentLockSet) {
         case LSFW_LOCK:
@@ -267,8 +316,8 @@ VOID DrawImageIcon(RUNTIMEPARAMS* pRuntimeParams, const SHORT wCurrentLockSet) {
     DeleteDC(hdcMemory);
     ReleaseDC(nullptr, hdcScreen);
 
-    if (pRuntimeParams->Display > 0) {
-      SetTimer(ghWndIndicator, IDEVENT_DISPLAY, MILISECONDS(pRuntimeParams->Display), nullptr);
+    if (pRuntimeParams->Showing > 0) {
+      SetTimer(ghWndIndicator, IDSHOW_TIMEOUT, MILISECONDS(pRuntimeParams->Showing), nullptr);
     }
   }
 
@@ -337,25 +386,28 @@ VOID LoadParameters(CONST TCHAR* lpCurrentDirectory, RUNTIMEPARAMS* pRuntimePara
   UINT nTrayID = fNumLockLoading ? IDNOTIFY_NUMLOCK : IDNOTIFY_CAPSLOCK;
   UINT nTrayUM = fNumLockLoading ? UMNOTIFY_NUMLOCK : UMNOTIFY_CAPSLOCK;
   SHORT wKeyState = fNumLockLoading ? GetKeyState(VK_NUMLOCK) : GetKeyState(VK_CAPITAL);
-  pRuntimeParams->LockNode = fNumLockLoading ? const_cast<TCHAR*>(TEXT("NumLock")) : const_cast<TCHAR*>(TEXT("CapsLock"));
+  pRuntimeParams->KeyNode = fNumLockLoading ? const_cast<TCHAR*>(TEXT("NumLock")) : const_cast<TCHAR*>(TEXT("CapsLock"));
 
   TCHAR szTemporaryData[MAX_PATH]{0};
   // # Lock 与 Unlock 图标位置(默认左 30px 上 30px)
-  GetPrivateProfileString(pRuntimeParams->LockNode, TEXT("Position"), TEXT("0,0"), szTemporaryData, _countof(szTemporaryData), strConfigPath);
+  GetPrivateProfileString(pRuntimeParams->KeyNode, TEXT("Position"), TEXT("0,0"), szTemporaryData, _countof(szTemporaryData), strConfigPath);
   _stscanf_s(szTemporaryData, TEXT("%d,%d"), &pRuntimeParams->Position.x, &pRuntimeParams->Position.y);
 
-  // 对齐方式(HL: 水平居左 HC: 水平居中 HR: 水平居右 VT: 垂直居上 VC: 垂直居中
-  // VB: 垂直居下)
+  // 对齐方式(HL: 水平居左 HC: 水平居中 HR: 水平居右 VT: 垂直居上 VC: 垂直居中 VB: 垂直居下)
   ZeroMemory(szTemporaryData, sizeof(szTemporaryData));
-  GetPrivateProfileString(pRuntimeParams->LockNode, TEXT("Alignment"), TEXT("HC|VC"), szTemporaryData, _countof(szTemporaryData), strConfigPath);
+  GetPrivateProfileString(pRuntimeParams->KeyNode, TEXT("Alignment"), TEXT("HC|VC"), szTemporaryData, _countof(szTemporaryData), strConfigPath);
 
   TCHAR* pszContexts[2];
   pszContexts[0] = _tcstok_s(szTemporaryData, TEXT("|"), (TCHAR**) &pszContexts[1]);
   CString strContexts[2]{pszContexts[0], pszContexts[1]};
 
+  // 开启静音状态
+  GetPrivateProfileString(pRuntimeParams->KeyNode, TEXT("EnableMute"), TEXT("true"), szTemporaryData, _countof(szTemporaryData), strConfigPath);
+  pRuntimeParams->EnableMute = _tcsstr(szTemporaryData, TEXT("true")) != nullptr;
+
   // # Lock 与 Unlock 置顶图标(左 Lock 右 Unlock)
   ZeroMemory(szTemporaryData, sizeof(szTemporaryData));
-  GetPrivateProfileString(pRuntimeParams->LockNode, TEXT("DeskImage"), CString(pRuntimeParams->LockNode) + CString(".png"), szTemporaryData,
+  GetPrivateProfileString(pRuntimeParams->KeyNode, TEXT("DeskImage"), CString(pRuntimeParams->KeyNode) + CString(".png"), szTemporaryData,
                           _countof(szTemporaryData), strConfigPath);
 
   CString strDeskImagePath = (_tcsstr(szTemporaryData, TEXT(":\\")) || _tcsstr(szTemporaryData, TEXT(":/")))
@@ -392,14 +444,14 @@ VOID LoadParameters(CONST TCHAR* lpCurrentDirectory, RUNTIMEPARAMS* pRuntimePara
                                  nDeskImageHeight, Gdiplus::Unit::UnitPixel);
   }
   // # Lock 与 Unlock 窗口隐藏时间(单位：秒)
-  pRuntimeParams->Display = GetPrivateProfileInt(pRuntimeParams->LockNode, TEXT("Display"), 1, strConfigPath);
+  pRuntimeParams->Showing = GetPrivateProfileInt(pRuntimeParams->KeyNode, TEXT("Showing"), 1, strConfigPath);
 
   // # 大写锁定与数字锁定关闭或开启时间(单位：秒)
-  pRuntimeParams->Timeout = GetPrivateProfileInt(pRuntimeParams->LockNode, TEXT("Timeout"), 0, strConfigPath);
+  pRuntimeParams->Timeout = GetPrivateProfileInt(pRuntimeParams->KeyNode, TEXT("Timeout"), 0, strConfigPath);
 
   // # Lock 与 Unlock 托盘图标(左边 Lock 右边 Unlock)
   ZeroMemory(szTemporaryData, sizeof(szTemporaryData));
-  GetPrivateProfileString(pRuntimeParams->LockNode, TEXT("TrayIcon"), CString(pRuntimeParams->LockNode) + CString(".png"), szTemporaryData,
+  GetPrivateProfileString(pRuntimeParams->KeyNode, TEXT("TrayIcon"), CString(pRuntimeParams->KeyNode) + CString(".png"), szTemporaryData,
                           _countof(szTemporaryData), strConfigPath);
 
   CString strTrayIconPath = (_tcsstr(szTemporaryData, TEXT(":\\")) || _tcsstr(szTemporaryData, TEXT(":/")))
@@ -434,7 +486,7 @@ VOID LoadParameters(CONST TCHAR* lpCurrentDirectory, RUNTIMEPARAMS* pRuntimePara
 
   // # Lock 音效(支持 wav mp3 格式)
   ZeroMemory(szTemporaryData, sizeof(szTemporaryData));
-  GetPrivateProfileString(pRuntimeParams->LockNode, TEXT("SoundOn"), CString(pRuntimeParams->LockNode) + CString(TEXT("On.wav")), szTemporaryData,
+  GetPrivateProfileString(pRuntimeParams->KeyNode, TEXT("SoundOn"), CString(pRuntimeParams->KeyNode) + CString(TEXT("On.wav")), szTemporaryData,
                           _countof(szTemporaryData), strConfigPath);
 
   CString strSoundOnPath = (_tcsstr(szTemporaryData, TEXT(":\\")) || _tcsstr(szTemporaryData, TEXT(":/")))
@@ -449,22 +501,9 @@ VOID LoadParameters(CONST TCHAR* lpCurrentDirectory, RUNTIMEPARAMS* pRuntimePara
     pRuntimeParams->SoundOn = strSoundOnPath;
   }
 
-  ZeroMemory(szTemporaryData, sizeof(szTemporaryData));
-  GetPrivateProfileString(pRuntimeParams->LockNode, TEXT("IgnoreList"), CString(TEXT("133")), szTemporaryData, _countof(szTemporaryData),
-                          strConfigPath);
-  int pos = 0;
-  std::set<int> values;
-  CString strIgnoreList(szTemporaryData);
-  CString token = strIgnoreList.Tokenize(_T(","), pos);
-  while (!token.IsEmpty()) {
-    values.insert(_ttoi(token)); // 转 int 并放入 set
-    token = strIgnoreList.Tokenize(_T(","), pos);
-  }
-  pRuntimeParams->IgnoreList = values;
-
   // # Unlock 音效(支持 wav mp3 格式)
   ZeroMemory(szTemporaryData, sizeof(szTemporaryData));
-  GetPrivateProfileString(pRuntimeParams->LockNode, TEXT("SoundOff"), CString(pRuntimeParams->LockNode) + CString(TEXT("Off.wav")), szTemporaryData,
+  GetPrivateProfileString(pRuntimeParams->KeyNode, TEXT("SoundOff"), CString(pRuntimeParams->KeyNode) + CString(TEXT("Off.wav")), szTemporaryData,
                           _countof(szTemporaryData), strConfigPath);
 
   CString strSoundOffPath = (_tcsstr(szTemporaryData, TEXT(":\\")) || _tcsstr(szTemporaryData, TEXT(":/")))
@@ -503,20 +542,23 @@ VOID LoadLanguage(CONST TCHAR* lpCurrentDirectory) {
   HMENU hMenuFile = GetSubMenu(ghMenuIndicator, 0);
 
   TCHAR szTemporaryData[MAX_PATH]{0};
+  GetPrivateProfileString(lpLanguageSection, TEXT("FileCaps"), TEXT("Caps Lock"), gszFileCaps, _countof(gszFileCaps), strConfigPath);
+  GetPrivateProfileString(lpLanguageSection, TEXT("FileNum"), TEXT("Num Lock"), gszFileNum, _countof(gszFileNum), strConfigPath);
+
+  GetPrivateProfileString(lpLanguageSection, TEXT("FileModify"), TEXT("Modify Settings"), szTemporaryData, _countof(szTemporaryData), strConfigPath);
+  ModifyMenu(hMenuFile, ID_FILE_MODIFY, MF_BYCOMMAND, ID_FILE_MODIFY, szTemporaryData);
+
   GetPrivateProfileString(lpLanguageSection, TEXT("FileStart"), TEXT("Auto Start"), szTemporaryData, _countof(szTemporaryData), strConfigPath);
   ModifyMenu(hMenuFile, ID_FILE_START, MF_BYCOMMAND, ID_FILE_START, szTemporaryData);
 
-  GetPrivateProfileString(lpLanguageSection, TEXT("FileRelease"), TEXT("Release Files"), szTemporaryData, _countof(szTemporaryData), strConfigPath);
-  ModifyMenu(hMenuFile, ID_FILE_RELEASE, MF_BYCOMMAND, ID_FILE_RELEASE, szTemporaryData);
-
   GetPrivateProfileString(lpLanguageSection, TEXT("FileExit"), TEXT("Quick Exit"), szTemporaryData, _countof(szTemporaryData), strConfigPath);
   ModifyMenu(hMenuFile, ID_FILE_EXIT, MF_BYCOMMAND, ID_FILE_EXIT, szTemporaryData);
-
-  GetPrivateProfileString(lpLanguageSection, TEXT("FileCaps"), TEXT("Caps Lock"), gszFileCaps, _countof(gszFileCaps), strConfigPath);
-  GetPrivateProfileString(lpLanguageSection, TEXT("FileNum"), TEXT("Num Lock"), gszFileNum, _countof(gszFileNum), strConfigPath);
 }
 
 bool ExtractResourceToFile(HINSTANCE hInstance, UINT nResourceID, const TCHAR* szResourceType, const CString& strOutPath) {
+  if (PathFileExists(strOutPath))
+    return true;
+
   HRSRC hResource = FindResource(hInstance, MAKEINTRESOURCE(nResourceID), szResourceType);
   if (!hResource)
     return false;
@@ -551,14 +593,37 @@ INT_PTR CALLBACK IndicatorWndProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lP
       *(_tcsrchr(gszWorkDir, TEXT('\\'))) = 0; // 把最后一个 \ 替换为 0
 
       LoadLanguage(gszWorkDir);
-      LoadParameters(gszWorkDir, &gCapsLockSetup);
       LoadParameters(gszWorkDir, &gNumLockSetup);
+      LoadParameters(gszWorkDir, &gCapsLockSetup);
 
-      SetTimer(hDlg, IDEVENT_SCANNING, 10, nullptr);
+      // SetTimer(hDlg, IDEVENT_SCANNING, 10, nullptr);
+      ghKeyboardHook = SetWindowsHookEx(WH_KEYBOARD_LL, LowLevelKeyboardProc, GetModuleHandle(nullptr), 0);
+
+      SHORT wNumLockSet = GetKeyState(VK_NUMLOCK) ? LSFW_LOCK : LSFW_UNLOCK;
+      SHORT wCapsLockSet = GetKeyState(VK_CAPITAL) ? LSFW_LOCK : LSFW_UNLOCK;
+      // 当前是灯灭状态，就重置/启动计时器
+      if (wNumLockSet == LSFW_UNLOCK && gNumLockSetup.Timeout > 0) {
+        gNumLockSetup.IDEvent = SetTimer(ghWndIndicator, IDNUM_TIMEOUT, MILISECONDS(gNumLockSetup.Timeout), nullptr);
+      }
+
+      // 当前是灯亮状态，就重置/启动计时器
+      if (wCapsLockSet == LSFW_LOCK && gCapsLockSetup.Timeout > 0) {
+        gCapsLockSetup.IDEvent = SetTimer(ghWndIndicator, IDCAPS_TIMEOUT, MILISECONDS(gCapsLockSetup.Timeout), nullptr);
+      }
       return (INT_PTR) TRUE;
     }
     case WM_COMMAND: {
-      if (wParam == ID_FILE_START) {
+      if (wParam == ID_FILE_MODIFY) {
+        CString strAbsolutePath;
+        strAbsolutePath = CString(gszWorkDir) + CString("\\NumLock.png");
+        ExtractResourceToFile(GetModuleHandle(nullptr), IDB_NUMLOCK, TEXT("PNG"), strAbsolutePath);
+        strAbsolutePath = CString(gszWorkDir) + CString("\\CapsLock.png");
+        ExtractResourceToFile(GetModuleHandle(nullptr), IDB_CAPSLOCK, TEXT("PNG"), strAbsolutePath);
+        strAbsolutePath = CString(gszWorkDir) + CString("\\AppSettings.ini");
+        ExtractResourceToFile(GetModuleHandle(nullptr), IDR_APPSETTINGS, RT_RCDATA, strAbsolutePath);
+        // 打开配置文件
+        ShellExecute(nullptr, nullptr, strAbsolutePath, nullptr, nullptr, SW_SHOW);
+      } else if (wParam == ID_FILE_START) {
         HMENU hMenuFile = GetSubMenu(ghMenuIndicator, 0);
         DWORD dwChecked = CheckMenuItem(hMenuFile, ID_FILE_START, 0);
         if (dwChecked == MF_CHECKED) {
@@ -568,13 +633,6 @@ INT_PTR CALLBACK IndicatorWndProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lP
           CurrentVersionRun(IDACTION_APPEND);
           CheckMenuItem(hMenuFile, ID_FILE_START, MF_CHECKED);
         }
-      } else if (wParam == ID_FILE_RELEASE) {
-        CString strAbsolutePath = CString(gszWorkDir) + CString("\\AppSettings.ini");
-        ExtractResourceToFile(GetModuleHandle(nullptr), IDR_APPSETTINGS, RT_RCDATA, strAbsolutePath);
-        strAbsolutePath = CString(gszWorkDir) + CString("\\CapsLock.png");
-        ExtractResourceToFile(GetModuleHandle(nullptr), IDB_CAPSLOCK, TEXT("PNG"), strAbsolutePath);
-        strAbsolutePath = CString(gszWorkDir) + CString("\\NumLock.png");
-        ExtractResourceToFile(GetModuleHandle(nullptr), IDB_NUMLOCK, TEXT("PNG"), strAbsolutePath);
       } else if (wParam == ID_FILE_EXIT) {
         EndDialog(hDlg, lParam);
       }
@@ -603,84 +661,31 @@ INT_PTR CALLBACK IndicatorWndProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lP
       return (INT_PTR) TRUE;
     }
     case WM_TIMER: {
-      if (wParam == IDEVENT_DISPLAY) {
-        KillTimer(hDlg, wParam);
-        ShowWindowAsync(hDlg, SW_HIDE);
-      } else if (wParam == IDEVENT_SCANNING) {
-        // 原有 NumLock / CapsLock 自动检测逻辑
-        SHORT wNumLockSet = GetKeyState(VK_NUMLOCK) ? LSFW_LOCK : LSFW_UNLOCK;
-        SHORT wCapsLockSet = GetKeyState(VK_CAPITAL) ? LSFW_LOCK : LSFW_UNLOCK;
-
-        bool altPressed = (GetAsyncKeyState(VK_MENU) & 0x8000);
-
-        bool key1Pressed = (GetAsyncKeyState('1') & 0x8000);
-        bool key2Pressed = (GetAsyncKeyState('2') & 0x8000);
-
-        // ALT+1：显示 NumLock 状态
-        if (altPressed && key1Pressed && !gbAlt1Down) {
-          gbAlt1Down = true;
-          wNumLockSet = 0;
-        }
-
-        // ALT+2：显示 CapsLock 状态
-        if (altPressed && key2Pressed && !gbAlt2Down) {
-          gbAlt2Down = true;
-          wCapsLockSet = 0;
-        }
-
-        if (gbAlt1Down || gbAlt2Down) {
-          gbAlt1Down = false;
-          gbAlt2Down = false;
-        }
-
-        if (gNumLockSetup.IDEvent) {
-          if (wNumLockSet == LSFW_LOCK) {
-            KillTimer(hDlg, gNumLockSetup.IDEvent);
-            gNumLockSetup.IDEvent = 0;
-          }
-        } else if (gNumLockSetup.Timeout > 0) {
-          gNumLockSetup.IDEvent = SetTimer(hDlg, IDNUM_TIMEOUT, MILISECONDS(gNumLockSetup.Timeout), nullptr);
-        }
-        DrawImageIcon(&gNumLockSetup, wNumLockSet);
-
-        if (gCapsLockSetup.IDEvent) {
-          if (wCapsLockSet == LSFW_UNLOCK) {
-            KillTimer(hDlg, gCapsLockSetup.IDEvent);
-            gCapsLockSetup.IDEvent = 0;
-          }
-        } else if (gCapsLockSetup.Timeout > 0) {
-          gCapsLockSetup.IDEvent = SetTimer(hDlg, IDCAPS_TIMEOUT, MILISECONDS(gCapsLockSetup.Timeout), nullptr);
-        }
-        DrawImageIcon(&gCapsLockSetup, wCapsLockSet);
-
-        // 检测是否有任意按键按下
-        for (int vk = 0x08; vk <= 0xFE; vk++) {
-          if (GetAsyncKeyState(vk) & 0x8000) {
-            if (gNumLockSetup.IDEvent) {
-              if (gNumLockSetup.IgnoreList.find(vk) != gNumLockSetup.IgnoreList.end())
-                continue;
-              KillTimer(hDlg, gNumLockSetup.IDEvent);
-              gNumLockSetup.IDEvent = 0;
-            }
-            if (gCapsLockSetup.IDEvent) {
-              if (gCapsLockSetup.IgnoreList.find(vk) != gCapsLockSetup.IgnoreList.end())
-                continue;
-              KillTimer(hDlg, gCapsLockSetup.IDEvent);
-              gCapsLockSetup.IDEvent = 0;
-            }
-            break;
-          }
-        }
-      } else if (wParam == IDNUM_TIMEOUT) {
+      if (wParam == IDNUM_TIMEOUT) {
         KillTimer(hDlg, wParam);
         gNumLockSetup.IDEvent = 0;
-        keybd_event(VK_NUMLOCK, 0x45, KEYEVENTF_EXTENDEDKEY | 0, 0);
-        keybd_event(VK_NUMLOCK, 0x45, KEYEVENTF_EXTENDEDKEY | KEYEVENTF_KEYUP, 0);
+        SHORT wNumLockSet = ((GetKeyState(VK_NUMLOCK) & 0x0001) != 0) ? LSFW_LOCK : LSFW_UNLOCK;
+        if (wNumLockSet == LSFW_UNLOCK) {
+          keybd_event(VK_NUMLOCK, 0x45, KEYEVENTF_EXTENDEDKEY | 0, 0);
+          keybd_event(VK_NUMLOCK, 0x45, KEYEVENTF_EXTENDEDKEY | KEYEVENTF_KEYUP, 0);
+        }
+        // SendMessage(ghWndIndicator, UMNOTIFY_PROCESS, VK_NUMLOCK, TRUE);
       } else if (wParam == IDCAPS_TIMEOUT) {
         KillTimer(hDlg, wParam);
         gCapsLockSetup.IDEvent = 0;
-        keybd_event(VK_CAPITAL, 0x45, KEYEVENTF_EXTENDEDKEY | 0, 1);
-        keybd_event(VK_CAPITAL, 0x45, KEYEVENTF_EXTENDEDKEY | KEYEVENTF_KEYUP, 1);
+        SHORT wCapsLockSet = (GetKeyState(VK_CAPITAL) & 0x0001) ? LSFW_LOCK : LSFW_UNLOCK;
+        if (wCapsLockSet == LSFW_LOCK) {
+          keybd_event(VK_CAPITAL, 0x45, KEYEVENTF_EXTENDEDKEY | 0, 1);
+          keybd_event(VK_CAPITAL, 0x45, KEYEVENTF_EXTENDEDKEY | KEYEVENTF_KEYUP, 1);
+        }
+        // SendMessage(ghWndIndicator, UMNOTIFY_PROCESS, VK_CAPITAL, TRUE);
+      } else if (wParam == IDSHOW_TIMEOUT) {
+        KillTimer(hDlg, wParam);
+        ShowWindowAsync(hDlg, SW_HIDE);
+      } else if (wParam == IDHOOK_TIMEOUT) {
+        KillTimer(hDlg, wParam);
+        int vkCode = (int) (INT_PTR) GetProp(hDlg, PROP_VKCODE);
+        KeyLockLogic(vkCode);
       }
       return (INT_PTR) TRUE;
     }

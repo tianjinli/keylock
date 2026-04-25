@@ -5,7 +5,6 @@
 #include <atlstr.h>
 
 #include <memory>
-#include <set>
 
 #include "resource.h"
 
@@ -18,19 +17,19 @@ typedef struct {
   std::unique_ptr<Gdiplus::Image> LockDeskImage; // 锁定时桌面图像
   std::unique_ptr<Gdiplus::Image> UnlockDeskImage; // 未锁定时桌面图像
   SHORT LockSet; // 当前锁定状态ID
-  SHORT Display; // 桌面图像显示时间
+  SHORT Showing; // 桌面图像显示时间
   SHORT Timeout; // 自动开启/关闭时间
   NOTIFYICONDATA LockTrayIcon; // 锁定时托盘图标
   NOTIFYICONDATA UnlockTrayIcon; // 未锁定时托盘图标
-  TCHAR* LockNode; // 锁定时节点
+  TCHAR* KeyNode; // 按键节点
+  bool EnableMute; // 静音状态
   CString SoundOn; // 锁定时音效
   CString SoundOff; // 未锁定时音效
-  std::set<int> IgnoreList; // 忽略按键列表
   UINT_PTR IDEvent; // 计时器ID
 } RUNTIMEPARAMS;
 
 // 绘制桌面图像与托盘图标
-VOID DrawImageIcon(RUNTIMEPARAMS* pRuntimeParams, const SHORT wCurrentLockSet = 0);
+VOID DrawImageIcon(RUNTIMEPARAMS* pRuntimeParams, SHORT wCurrentLockSet = 0);
 
 std::unique_ptr<Gdiplus::Image> LoadImageWithFallback(const TCHAR* lpFilePath, HINSTANCE hInstance, UINT nResourceID);
 

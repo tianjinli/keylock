@@ -160,7 +160,7 @@
     <ClCompile Include="KeyLock.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ResourceCompile Include="Resources\KeyLock.rc" />
+    <ResourceCompile Include="KeyLock.rc" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="Resources\KeyLock.ico" />
