@@ -1,0 +1,48 @@
+name: Build KeyLock
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        configuration: [Release]
+        platform: [x64]
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Add MSBuild to PATH
+      uses: microsoft/setup-msbuild@v1.1
+      with:
+        vs-version: '16.0'
+
+    - name: Build ${{ matrix.configuration }}-${{ matrix.platform }}
+      run: |
+        msbuild KeyLock.sln /p:Configuration=${{ matrix.configuration }} /p:Platform=${{ matrix.platform }} /v:normal
+      working-directory: ${{ github.workspace }}
+
+    - name: Upload Artifacts (${{ matrix.configuration }}-${{ matrix.platform }})
+      if: success()
+      uses: actions/upload-artifact@v4
+      with:
+        name: KeyLock-${{ matrix.configuration }}-${{ matrix.platform }}
+        path: |
+          Bin/${{ matrix.configuration }}/KeyLock.exe
+        retention-days: 30
+
+    - name: Check Build Output
+      run: |
+        Get-ChildItem -Path "Bin\${{ matrix.configuration }}" -Recurse
+        if (-not (Test-Path "Bin\${{ matrix.configuration }}\KeyLock.exe")) {
+          Write-Error "Build artifact KeyLock.exe not found!"
+          exit 1
+        }
+      shell: powershell
