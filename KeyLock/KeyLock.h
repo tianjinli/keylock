@@ -10,36 +10,36 @@
 
 #include "resource.h"
 
-/**
- * 运行时参数列表
- */
+// 运行时参数上下文
 typedef struct {
-  UINT resource_id; // 内部资源ID
-  POINT position; // 桌面图像显示位置
-  std::unique_ptr<Gdiplus::Image> lock_desk_image; // 锁定时桌面图像
-  std::unique_ptr<Gdiplus::Image> unlock_desk_image; // 未锁定时桌面图像
-  SHORT lock_set; // 当前锁定状态ID
-  SHORT showing; // 桌面图像显示时间
-  SHORT timeout; // 自动开启/关闭时间
+  UINT lock_resource_id; // 锁定时资源ID
+  UINT unlock_resource_id; // 未锁定时资源ID
+  POINT hud_position; // 桌面图像显示位置
+  std::unique_ptr<Gdiplus::Image> lock_hud_image; // 锁定时HUD图像
+  std::unique_ptr<Gdiplus::Image> unlock_hud_image; // 未锁定时HUD图像
+  SHORT indicator_status; // 当前指示器显示状态
+  SHORT hud_display_duration; // HUD显示持续时间
+  SHORT auto_restore_state; // 自动恢复锁定状态
+  SHORT auto_restore_delay; // 自动恢复延时时间
   NOTIFYICONDATA lock_tray_icon; // 锁定时托盘图标
   NOTIFYICONDATA unlock_tray_icon; // 未锁定时托盘图标
-  TCHAR* key_node; // 按键节点
-  bool enable_mute; // 静音状态
-  CString sound_on; // 锁定时音效
-  CString sound_off; // 未锁定时音效
-  UINT_PTR id_event; // 计时器ID
-} RUNTIMEPARAMS;
+  const TCHAR* indicator_key; // 指示器按键
+  bool sound_muted; // 音效是否静音
+  CString lock_key_sound; // 锁定时音效
+  CString unlock_key_sound; // 未锁定时音效
+  UINT_PTR auto_restore_timer_id; // 自动恢复计时器ID
+} IndicatorContext;
 
 // 绘制桌面图像与托盘图标
-VOID DrawImageIcon(RUNTIMEPARAMS* runtime_params, SHORT current_lock_set = 0);
+VOID DrawImageIcon(IndicatorContext* context, SHORT current_lock_set = 0);
 
 std::unique_ptr<Gdiplus::Image> LoadImageWithFallback(const TCHAR* file_path, HINSTANCE instance, UINT resource_id);
 
 // 从 INI 文件读取语言
-VOID LoadLanguage(const std::unique_ptr<CSimpleIni>& ini);
+VOID LoadMenuText(const std::unique_ptr<CSimpleIni>& ini);
 
 // 从 INI 文件读取参数
-VOID LoadParameters(const std::unique_ptr<CSimpleIni>& ini, RUNTIMEPARAMS* runtime_params);
+VOID LoadParameters(const std::unique_ptr<CSimpleIni>& ini, uint32_t index);
 
 // 指示器窗口处理函数
 INT_PTR CALLBACK IndicatorWndProc(HWND dialog_handle, UINT message, WPARAM w_param, LPARAM l_param);

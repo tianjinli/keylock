@@ -163,9 +163,13 @@
     <ResourceCompile Include="KeyLock.rc" />
   </ItemGroup>
   <ItemGroup>
+    <Image Include="Resources\CapsLock_Off.png" />
+    <Image Include="Resources\CapsLock_On.png" />
     <Image Include="Resources\KeyLock.ico" />
-    <Image Include="Resources\CapsLock.png" />
-    <Image Include="Resources\NumLock.png" />
+    <Image Include="Resources\NumLock_Off.png" />
+    <Image Include="Resources\NumLock_On.png" />
+    <Image Include="Resources\ScrollLock_Off.png" />
+    <Image Include="Resources\ScrollLock_On.png" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Resources\AppSettings.ini" />

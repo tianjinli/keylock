@@ -8,7 +8,7 @@
 
 [English](README.md) | 中文
 
-一个轻量级的 Win32 原生键盘锁定状态指示器，实时显示大写锁定 (Caps Lock) 和数字锁定 (Num Lock) 的状态。
+一个轻量级的 Win32 原生键盘锁定状态指示器，实时显示数字锁定 (Num Lock)、大写锁定 (Caps Lock) 和滚动锁定 (Scroll Lock) 的状态。
 
 </div>
 
@@ -17,7 +17,7 @@
 ## 📌 功能特性
 
 ✅ **实时状态显示**
-- 实时监控 Caps Lock 和 Num Lock 状态
+- 实时监控 Num Lock、Caps Lock 和 Scroll Lock 状态
 - 自定义桌面浮窗位置和对齐方式
 - 支持自定义指示器图标（PNG 格式）
 
@@ -25,8 +25,7 @@
 - 支持自定义配置文件 (AppSettings.ini)
 - `ALT+1` 快速显示数字锁定状态
 - `ALT+2` 快速显示大写锁定状态
-- 可自定义多久后恢复数字锁定状态
-- 可自定义多久后解除大写锁定状态
+- `ALT+3` 快速显示滚动锁定状态
 
 ✅ **多媒体反馈**
 - 支持自定义音效（WAV/MP3 格式）
@@ -64,7 +63,7 @@
 KeyLock.exe
 ```
 
-程序会自动在桌面右上角显示当前的 Caps Lock 和 Num Lock 状态。
+程序会自动在桌面右上角显示当前的 Num Lock、Caps Lock 和 Scroll Lock 状态。
 
 右键点击托盘图标可以：
 - 查看当前锁定状态
@@ -79,6 +78,7 @@ KeyLock.exe
 |------|------|
 | `ALT+1` | 显示 Num Lock 状态 |
 | `ALT+2` | 显示 Caps Lock 状态 |
+| `ALT+3` | 显示 Scroll Lock 状态 |
 | 右键单击托盘图标 | 打开菜单 |
 
 ---
@@ -94,8 +94,8 @@ KeyLock.exe
 
 ```bash
 # 克隆仓库
-git clone https://github.com/yourusername/KeyLock.git
-cd KeyLock
+git clone https://github.com/tianjinli/keylock.git
+cd keylock
 
 # 使用 Visual Studio 打开
 start KeyLock.sln
@@ -105,29 +105,6 @@ msbuild KeyLock.sln /p:Configuration=Release /p:Platform=x64
 ```
 
 编译输出位于 `Bin/Release/` 目录。
-
-### 项目结构
-
-```
-KeyLock/
-├── .github/
-│   └── workflows/          # GitHub Actions CI/CD
-├── Bin/                    # 编译输出
-├── Obj/                    # 编译中间文件
-├── KeyLock/
-│   ├── KeyLock.cpp         # 主程序
-│   ├── KeyLock.h           # 头文件
-│   ├── KeyLock.rc          # 资源文件
-│   ├── Resource.h          # 资源定义
-│   ├── Resources/          # 资源文件夹
-│   │   ├── AppSettings.ini
-│   │   ├── CapsLock.png
-│   │   └── NumLock.png
-│   └── KeyLock.vcxproj     # 项目文件
-├── KeyLock.sln             # 解决方案文件
-├── README.md               # 英文说明文档
-└── README_CN.md            # 中文说明文档
-```
 
 ---
 
@@ -147,7 +124,7 @@ KeyLock/
 
 本项目采用 MIT 许可证。
 
-**注意**: 本项目中包含的图片和音效素材来自 Acer Launch Manager，仅供学习参考使用，不得用于商业目的。
+**注意**: 本项目中包含的图片和音效素材来自 Acer Quick Access，仅供学习参考使用，不得用于商业目的。
 
 ---
 
@@ -207,6 +184,6 @@ A: 编辑 AppSettings.ini，修改 DeskImage 和 TrayIcon 参数，指向你的 
 
 **[返回顶部](#keylock---键盘锁定状态指示器)**
 
-Made with ❤️ by [tianjinli]
+Made with ❤️ by [tianjinli](https://github.com/tianjinli)
 
 </div>

@@ -9,13 +9,25 @@
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
-    <Image Include="Resources\CapsLock.png">
-      <Filter>Resources</Filter>
-    </Image>
     <Image Include="Resources\KeyLock.ico">
       <Filter>Resources</Filter>
     </Image>
-    <Image Include="Resources\NumLock.png">
+    <Image Include="Resources\CapsLock_On.png">
+      <Filter>Resources</Filter>
+    </Image>
+    <Image Include="Resources\CapsLock_Off.png">
+      <Filter>Resources</Filter>
+    </Image>
+    <Image Include="Resources\NumLock_Off.png">
+      <Filter>Resources</Filter>
+    </Image>
+    <Image Include="Resources\NumLock_On.png">
+      <Filter>Resources</Filter>
+    </Image>
+    <Image Include="Resources\ScrollLock_Off.png">
+      <Filter>Resources</Filter>
+    </Image>
+    <Image Include="Resources\ScrollLock_On.png">
       <Filter>Resources</Filter>
     </Image>
   </ItemGroup>
