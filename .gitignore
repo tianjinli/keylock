@@ -1,5 +1,8 @@
 /Obj
 /Bin
 /.vs
+/.vscode
+/.idea
 /Src/*.user
 /Src/*.aps
+/vcpkg_installed

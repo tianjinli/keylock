@@ -35,7 +35,9 @@ BreakConstructorInitializers: AfterColon
 BreakConstructorInitializersBeforeComma: false
 # 限制每行字符长度为 150
 ColumnLimit: 150
-ConstructorInitializerAllOnOneLineOrOnePerLine: false
+# ConstructorInitializerAllOnOneLineOrOnePerLine: false
+ConstructorInitializerAllOnOneLineOrOnePerLine: true
+AllowAllConstructorInitializersOnNextLine: false
 IncludeBlocks: Preserve
 IncludeCategories:
   - Regex: '^<.*'

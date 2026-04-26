@@ -8,7 +8,7 @@
 
 [中文](README_CN.md) | English
 
-A lightweight Win32 native keyboard lock state indicator that displays Caps Lock and Num Lock status in real-time.
+A lightweight Win32 native keyboard lock state indicator that displays Num Lock, Caps Lock and Scroll Lock status in real-time.
 
 </div>
 
@@ -17,7 +17,7 @@ A lightweight Win32 native keyboard lock state indicator that displays Caps Lock
 ## 📌 Features
 
 ✅ **Real-time State Display**
-- Monitor Caps Lock and Num Lock status in real-time
+- Monitor Num Lock, Caps Lock and Scroll Lock status in real-time
 - Customizable desktop floating window position and alignment
 - Support for custom indicator icons (PNG format)
 
@@ -25,8 +25,7 @@ A lightweight Win32 native keyboard lock state indicator that displays Caps Lock
 - Customizable configuration file (AppSettings.ini)
 - `ALT+1` Quick display of Num Lock status
 - `ALT+2` Quick display of Caps Lock status
-- Customizable recovery time for Num Lock status
-- Customizable release time for Caps Lock status
+- `ALT+3` Quick display of Scroll Lock status
 
 ✅ **Multimedia Feedback**
 - Support for custom sound effects (WAV/MP3 format)
@@ -48,7 +47,7 @@ A lightweight Win32 native keyboard lock state indicator that displays Caps Lock
 ## 🚀 Quick Start
 
 ### System Requirements
-- **Operating System**: Windows XP and above
+- **Operating System**: Windows 8.1 and above
 - **Architecture**: x64
 - **.NET Framework**: None required
 
@@ -64,7 +63,7 @@ A lightweight Win32 native keyboard lock state indicator that displays Caps Lock
 KeyLock.exe
 ```
 
-The program will automatically display the current Caps Lock and Num Lock status in the upper right corner of your desktop.
+The program will automatically display the current Num Lock, Caps Lock and Scroll Lock status in the upper right corner of your desktop.
 
 Right-click the system tray icon to:
 - View current lock status
@@ -79,6 +78,7 @@ Right-click the system tray icon to:
 |----------|----------|
 | `ALT+1` | Show Num Lock status |
 | `ALT+2` | Show Caps Lock status |
+| `ALT+3` | Show Scroll Lock status |
 | Right-click tray icon | Open menu |
 
 ---
@@ -94,8 +94,8 @@ Right-click the system tray icon to:
 
 ```bash
 # Clone repository
-git clone https://github.com/yourusername/KeyLock.git
-cd KeyLock
+git clone https://github.com/tianjinli/keylock.git
+cd keylock
 
 # Open with Visual Studio
 start KeyLock.sln
@@ -105,29 +105,6 @@ msbuild KeyLock.sln /p:Configuration=Release /p:Platform=x64
 ```
 
 Build output is located in the `Bin/Release/` directory.
-
-### Project Structure
-
-```
-KeyLock/
-├── .github/
-│   └── workflows/          # GitHub Actions CI/CD
-├── Bin/                    # Build output
-├── Obj/                    # Build intermediate files
-├── KeyLock/
-│   ├── KeyLock.cpp         # Main program
-│   ├── KeyLock.h           # Header files
-│   ├── KeyLock.rc          # Resource file
-│   ├── Resource.h          # Resource definitions
-│   ├── Resources/          # Resource folder
-│   │   ├── AppSettings.ini
-│   │   ├── CapsLock.png
-│   │   └── NumLock.png
-│   └── KeyLock.vcxproj     # Project file
-├── KeyLock.sln             # Solution file
-├── README.md               # English README
-└── README_CN.md            # Chinese README
-```
 
 ---
 
@@ -147,7 +124,7 @@ See [.github/CI_README.md](.github/CI_README.md) for details
 
 This project is licensed under the MIT License.
 
-**Note**: The images and sound effects in this project are sourced from Acer Launch Manager and are for educational reference only. Do not use commercially.
+**Note**: The images and sound effects in this project are sourced from Acer Quick Access and are for educational reference only. Do not use commercially.
 
 ---
 
@@ -187,7 +164,7 @@ Please describe in [Issues](../../issues):
 A: Lower resource usage, no external dependencies, faster startup.
 
 **Q: Which Windows versions are supported?**  
-A: Windows XP and above. Windows 7 or newer is recommended.
+A: Windows 8.1 and above. Windows 10 or newer is recommended.
 
 **Q: Can I disable sound effects?**  
 A: Yes, comment out or leave empty SoundOn and SoundOff in the configuration file.
@@ -207,6 +184,6 @@ For questions or issues, please submit an Issue or Pull Request.
 
 **[Back to Top](#keylock---keyboard-lock-status-indicator)**
 
-Made with ❤️ by [tianjinli]
+Made with ❤️ by [tianjinli](https://github.com/tianjinli)
 
 </div>
