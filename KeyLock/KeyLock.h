@@ -6,41 +6,43 @@
 
 #include <memory>
 
+#include "SimpleIni.h"
+
 #include "resource.h"
 
 /**
  * 运行时参数列表
  */
 typedef struct {
-  UINT ResourceID; // 内部资源ID
-  POINT Position; // 桌面图像显示位置
-  std::unique_ptr<Gdiplus::Image> LockDeskImage; // 锁定时桌面图像
-  std::unique_ptr<Gdiplus::Image> UnlockDeskImage; // 未锁定时桌面图像
-  SHORT LockSet; // 当前锁定状态ID
-  SHORT Showing; // 桌面图像显示时间
-  SHORT Timeout; // 自动开启/关闭时间
-  NOTIFYICONDATA LockTrayIcon; // 锁定时托盘图标
-  NOTIFYICONDATA UnlockTrayIcon; // 未锁定时托盘图标
-  TCHAR* KeyNode; // 按键节点
-  bool EnableMute; // 静音状态
-  CString SoundOn; // 锁定时音效
-  CString SoundOff; // 未锁定时音效
-  UINT_PTR IDEvent; // 计时器ID
+  UINT resource_id; // 内部资源ID
+  POINT position; // 桌面图像显示位置
+  std::unique_ptr<Gdiplus::Image> lock_desk_image; // 锁定时桌面图像
+  std::unique_ptr<Gdiplus::Image> unlock_desk_image; // 未锁定时桌面图像
+  SHORT lock_set; // 当前锁定状态ID
+  SHORT showing; // 桌面图像显示时间
+  SHORT timeout; // 自动开启/关闭时间
+  NOTIFYICONDATA lock_tray_icon; // 锁定时托盘图标
+  NOTIFYICONDATA unlock_tray_icon; // 未锁定时托盘图标
+  TCHAR* key_node; // 按键节点
+  bool enable_mute; // 静音状态
+  CString sound_on; // 锁定时音效
+  CString sound_off; // 未锁定时音效
+  UINT_PTR id_event; // 计时器ID
 } RUNTIMEPARAMS;
 
 // 绘制桌面图像与托盘图标
-VOID DrawImageIcon(RUNTIMEPARAMS* pRuntimeParams, SHORT wCurrentLockSet = 0);
+VOID DrawImageIcon(RUNTIMEPARAMS* runtime_params, SHORT current_lock_set = 0);
 
-std::unique_ptr<Gdiplus::Image> LoadImageWithFallback(const TCHAR* lpFilePath, HINSTANCE hInstance, UINT nResourceID);
-
-// 从 INI 文件读取参数
-VOID LoadParameters(CONST TCHAR* lpCurrentDirectory, RUNTIMEPARAMS* pRuntimeParams);
+std::unique_ptr<Gdiplus::Image> LoadImageWithFallback(const TCHAR* file_path, HINSTANCE instance, UINT resource_id);
 
 // 从 INI 文件读取语言
-VOID LoadLanguage(CONST TCHAR* lpCurrentDirectory);
+VOID LoadLanguage(const std::unique_ptr<CSimpleIni>& ini);
+
+// 从 INI 文件读取参数
+VOID LoadParameters(const std::unique_ptr<CSimpleIni>& ini, RUNTIMEPARAMS* runtime_params);
 
 // 指示器窗口处理函数
-INT_PTR CALLBACK IndicatorWndProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam);
+INT_PTR CALLBACK IndicatorWndProc(HWND dialog_handle, UINT message, WPARAM w_param, LPARAM l_param);
 
 // 0: 检查开机启动 1: 设置开机启动 2: 取消开机启动
-BOOL CurrentVersionRun(UINT uMsg);
+BOOL CurrentVersionRun(UINT message);

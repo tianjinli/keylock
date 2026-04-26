@@ -53,11 +53,18 @@ jobs:
         name: KeyLock-Release-x64
         path: ./artifacts
 
+    - name: Rename Executable
+      shell: bash
+      run: |
+        VERSION=${GITHUB_REF_NAME#v}
+        mv ./artifacts/KeyLock.exe ./artifacts/KeyLock-$VERSION.exe
+        echo "RELEASE_FILENAME=KeyLock-$VERSION.exe" >> $GITHUB_ENV
+
     - name: Create Release
       uses: softprops/action-gh-release@v2
       with:
         files: |
-          ./artifacts/KeyLock.exe
+          ./artifacts/${{ env.RELEASE_FILENAME }}
         draft: false
         prerelease: false
       env:
