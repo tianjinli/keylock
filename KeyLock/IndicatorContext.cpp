@@ -162,7 +162,7 @@ void IndicatorContext::RenderAutoAligned(LockState lock_state) {
     hud_image = unlock_hud_image_.get();
   }
 
-  CPoint position(0, 0);
+  CPoint position = hud_offset_;
   int hud_image_width = hud_image->GetWidth();
   int hud_image_height = hud_image->GetHeight();
   int screen_width = GetSystemMetrics(SM_CXSCREEN);
