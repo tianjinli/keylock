@@ -45,7 +45,7 @@ public:
     return indicator_type_;
   }
   const TCHAR* GetIndicatorKey() const {
-    return INDICATOR_KEYS[static_cast<size_t>(indicator_type_)];
+    return INDICATOR_NAMES[static_cast<int>(indicator_type_)];
   }
   LockState GetAutoRestoreState() const {
     return auto_restore_state_;
@@ -104,7 +104,7 @@ public:
   }
 
   LockState GetCurrentLockState() {
-    uint32_t key_state = GetKeyState(VK_CODES[static_cast<size_t>(indicator_type_)]);
+    uint32_t key_state = GetKeyState(INDICATOR_KEYS[static_cast<int>(indicator_type_)]);
     return (key_state & 0x0001) ? LockState::Lock : LockState::Unlock;
   }
 
@@ -118,7 +118,7 @@ public:
   // 安排自动恢复定时器
   void ScheduleAutoRestore(LockState lock_state) {
     if (auto_restore_state_ != LockState::None && auto_restore_state_ != lock_state && auto_restore_delay_ >= 0 && auto_restore_timer_id_ == 0) {
-      auto_restore_timer_id_ = kNumLockTimerID + static_cast<size_t>(indicator_type_);
+      auto_restore_timer_id_ = kNumLockTimerID + static_cast<int>(indicator_type_);
       SetTimer(window_handle_, auto_restore_timer_id_, SECONDS_TO_MILLISECONDS(auto_restore_delay_), nullptr);
     }
   }

@@ -32,7 +32,7 @@ void MainWindow::LoadAppSettings() {
       auto text = ini_handle->GetValue(menu_section, item.ini_key, item.default_text);
       ModifyMenu(menu_file, item.command_id, MF_BYCOMMAND, item.command_id, text);
     }
-    for (int i = std::size(VK_CODES) - 1; i >= 0; --i) {
+    for (int i = std::size(INDICATOR_KEYS) - 1; i >= 0; --i) {
       contexts_[i] = std::make_unique<IndicatorContext>(static_cast<KeyType>(i), m_hWnd);
       contexts_[i]->LoadIndicators(ini_handle, m_hWnd);
     }
@@ -49,6 +49,8 @@ LRESULT MainWindow::OnInitDialog(UINT, WPARAM, LPARAM, BOOL&) {
   // 设置键盘钩子
   KeyboardHook::SetWindowHandle(m_hWnd);
   KeyboardHook::InstallHook();
+  // 自动恢复按键状态
+  HandleKeyLogic();
   return 0;
 }
 
@@ -74,8 +76,8 @@ LRESULT MainWindow::OnTimer(UINT, WPARAM id, LPARAM, BOOL&) {
     auto& context = contexts_[index];
     auto lock_state = context->GetCurrentLockState();
     if (lock_state != context->GetAutoRestoreState()) {
-      keybd_event(VK_CODES[index], 0x45, KEYEVENTF_EXTENDEDKEY | 0, 0);
-      keybd_event(VK_CODES[index], 0x45, KEYEVENTF_EXTENDEDKEY | KEYEVENTF_KEYUP, 0);
+      keybd_event(INDICATOR_KEYS[index], 0x45, KEYEVENTF_EXTENDEDKEY | 0, 0);
+      keybd_event(INDICATOR_KEYS[index], 0x45, KEYEVENTF_EXTENDEDKEY | KEYEVENTF_KEYUP, 0);
     }
   }
   return 0;
@@ -96,7 +98,7 @@ LRESULT MainWindow::OnTrayIcon(UINT, WPARAM id, LPARAM l_param, BOOL&) {
 
     if (int index = (int) id - kNotifyNumLockID; IsValidIndex(index)) {
       ModifyMenu(menu_file, ID_FILE_ABOUT, MF_BYCOMMAND | MF_GRAYED | MF_DISABLED, ID_FILE_ABOUT, menu_text_list_[index]);
-      SHORT key_state = GetKeyState(VK_CODES[index]);
+      SHORT key_state = GetKeyState(INDICATOR_KEYS[index]);
       CheckMenuItem(menu_file, ID_FILE_ABOUT, key_state ? MF_CHECKED : MF_UNCHECKED);
 
       TrackPopupMenu(menu_file, TPM_LEFTALIGN | TPM_RIGHTBUTTON | TPM_VERTICAL, popup_point.x, popup_point.y, 0, m_hWnd, nullptr);
@@ -110,8 +112,30 @@ LRESULT MainWindow::OnTrayIcon(UINT, WPARAM id, LPARAM l_param, BOOL&) {
 }
 
 LRESULT MainWindow::OnKeyboardHook(UINT, WPARAM vk_code, LPARAM flags, BOOL&) {
-  vk_code_ = LOWORD(vk_code);
-  SetTimer(kHookKeyLogicTimerID, 1, nullptr);
+  // 停止自动恢复定时器
+  if (!(flags & LLKHF_INJECTED)) { // 非注入按键
+    for (auto& context: contexts_) {
+      context->StopAutoRestoreTimer();
+    }
+  }
+  bool alt_down = (GetAsyncKeyState(VK_MENU) & 0x8000) != 0;
+  if (alt_down) {
+    if (vk_code == '0') {
+      ShowWindowAsync(SW_HIDE);
+    } else {
+      auto index = vk_code - '1';
+      if (IsValidIndex(index)) {
+        contexts_[index]->DisplayIndicator();
+      }
+    }
+  }
+  for (size_t i = 0; i < std::size(INDICATOR_KEYS); i++) {
+    if (vk_code == INDICATOR_KEYS[i]) {
+      indicator_index_queue_.emplace(i);
+    }
+  }
+
+  SetTimer(kHookKeyLogicTimerID, 10, nullptr);
   return 0;
 }
 
@@ -163,37 +187,15 @@ void MainWindow::ToggleAutoStart() {
 }
 
 void MainWindow::HandleKeyLogic() {
-  auto vk_code = vk_code_;
-  vk_code_ = 0;
-
-  bool alt_down = (GetAsyncKeyState(VK_MENU) & 0x8000) != 0;
-  if (alt_down && vk_code == '0') {
-    ShowWindowAsync(SW_HIDE);
-    return;
+  while (!indicator_index_queue_.empty()) {
+    auto index = indicator_index_queue_.front();
+    indicator_index_queue_.pop();
+    auto& context = contexts_[index];
+    context->HandleIndicator();
   }
   for (auto& context: contexts_) {
-    auto index = static_cast<uint32_t>(context->GetIndicatorType());
-    if (!IsValidIndex(index)) {
-      continue;
-    }
-
-    // 停止自动恢复定时器
-    context->StopAutoRestoreTimer();
-
     auto lock_state = context->GetCurrentLockState();
-
-    // Alt + 1/2/3 显示指示器
-    if (alt_down && vk_code == '1' + index) {
-      context->DisplayIndicator();
-      return;
-    }
-
     // 安排自动恢复定时器
     context->ScheduleAutoRestore(lock_state);
-    
-    // 按键对应指示器
-    if (vk_code == VK_CODES[index]) {
-      context->HandleIndicator();
-    }
   }
 }

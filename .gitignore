@@ -5,5 +5,4 @@
 /.idea
 /vcpkg_installed
 *.aps
-*.vcxproj.filters
 *.vcxproj.user

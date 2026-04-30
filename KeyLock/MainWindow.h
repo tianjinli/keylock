@@ -5,6 +5,7 @@
 #include <atlwin.h>
 
 #include <memory>
+#include <queue>
 #include <vector>
 
 #include "Constants.h"
@@ -67,15 +68,15 @@ public:
 private:
   HMENU menu_handle_{LoadMenu(GetModuleHandle(nullptr), MAKEINTRESOURCE(IDR_KEYLOCK))};
 
-  CString menu_text_list_[std::size(INDICATOR_KEYS)];
+  CString menu_text_list_[std::size(INDICATOR_NAMES)];
 
-  uint32_t vk_code_{0};
+  std::queue<uint32_t> indicator_index_queue_;
 
   // 指示器上下文和键盘钩子
-  std::unique_ptr<IndicatorContext> contexts_[std::size(INDICATOR_KEYS)];
+  std::unique_ptr<IndicatorContext> contexts_[std::size(INDICATOR_NAMES)];
 
   bool IsValidIndex(uint32_t index) const {
-    return index < std::size(INDICATOR_KEYS);
+    return index < std::size(INDICATOR_NAMES);
   }
 
   // 辅助方法

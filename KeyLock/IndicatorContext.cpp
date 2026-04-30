@@ -40,7 +40,7 @@ void IndicatorContext::LoadIndicators(const std::unique_ptr<CSimpleIni>& ini_han
 
 
   /// ----------- 加载图像配置 ----------- ///
-  auto [lock_resource_id, unlock_resource_id] = RESOURCE_IDS[static_cast<size_t>(indicator_type_)];
+  auto [lock_resource_id, unlock_resource_id] = RESOURCE_IDS[static_cast<int>(indicator_type_)];
   auto lock_hud_image_path = ini_handle->GetValue(indicator_key, TEXT("HudImageOn"), (CString(indicator_key) + CString("_On.png")));
   auto unlock_hud_image_path = ini_handle->GetValue(indicator_key, TEXT("HudImageOff"), (CString(indicator_key) + CString("_Off.png")));
 
@@ -50,8 +50,8 @@ void IndicatorContext::LoadIndicators(const std::unique_ptr<CSimpleIni>& ini_han
   auto lock_bitmap = ResourceManager::ConvertImageToBitmap(lock_hud_image_.get());
   auto unlock_bitmap = ResourceManager::ConvertImageToBitmap(unlock_hud_image_.get());
 
-  uint32_t notify_id = kNotifyNumLockID + static_cast<size_t>(indicator_type_);
-  uint32_t notify_um = UM_NOTIFY_NUMLOCK + static_cast<size_t>(indicator_type_);
+  uint32_t notify_id = kNotifyNumLockID + static_cast<int>(indicator_type_);
+  uint32_t notify_um = UM_NOTIFY_NUMLOCK + static_cast<int>(indicator_type_);
   NOTIFYICONDATA notify_icon_data = {sizeof(notify_icon_data)};
   notify_icon_data.hWnd = indicator_window;
   notify_icon_data.uID = notify_id;

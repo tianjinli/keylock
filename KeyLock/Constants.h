@@ -19,10 +19,10 @@ enum class KeyType {
 };
 
 // 虚拟键码定义
-constexpr int VK_CODES[] = {VK_NUMLOCK, VK_CAPITAL, VK_SCROLL};
+constexpr int INDICATOR_KEYS[] = {VK_NUMLOCK, VK_CAPITAL, VK_SCROLL};
 
 // 指示器按键名称
-constexpr const TCHAR* INDICATOR_KEYS[] = {TEXT("NumLock"), TEXT("CapsLock"), TEXT("ScrollLock")};
+constexpr const TCHAR* INDICATOR_NAMES[] = {TEXT("NumLock"), TEXT("CapsLock"), TEXT("ScrollLock")};
 
 // 资源ID定义
 constexpr uint32_t RESOURCE_IDS[][2] = {{IDB_NUMLOCKON, IDB_NUMLOCKOFF}, {IDB_CAPSLOCKON, IDB_CAPSLOCKOFF}, {IDB_SCROLLLOCKON, IDB_SCROLLLOCKOFF}};
