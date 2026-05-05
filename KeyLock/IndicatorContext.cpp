@@ -73,11 +73,14 @@ void IndicatorContext::LoadIndicators(const std::unique_ptr<CSimpleIni>& ini_han
   _tcscpy_s(unlock_notify_icon_data_.szTip, sizeof(unlock_notify_icon_data_.szTip), tray_tip_off);
 
   // 添加托盘图标
-  auto current_state = GetCurrentLockState();
-  if (current_state == LockState::Lock) {
-    Shell_NotifyIcon(NIM_ADD, &lock_notify_icon_data_);
-  } else {
-    Shell_NotifyIcon(NIM_ADD, &unlock_notify_icon_data_);
+  icon_visible_ = ini_handle->GetBoolValue(indicator_key, TEXT("IconVisible"), true);
+  if (icon_visible_) {
+    auto current_state = GetCurrentLockState();
+    if (current_state == LockState::Lock) {
+      Shell_NotifyIcon(NIM_ADD, &lock_notify_icon_data_);
+    } else {
+      Shell_NotifyIcon(NIM_ADD, &unlock_notify_icon_data_);
+    }
   }
 
 
@@ -111,7 +114,9 @@ void IndicatorContext::HandleIndicator() {
   // 播放按键音效
   PlaySoundEffect(lock_state);
   // 修改托盘图标
-  ModifyTrayIcon(lock_state);
+  if (icon_visible_) {
+    ModifyTrayIcon(lock_state);
+  }
   // 显示HUD图像
   RenderAutoAligned(lock_state);
   // 安排自动恢复定时器

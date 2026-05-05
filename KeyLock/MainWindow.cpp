@@ -123,7 +123,7 @@ LRESULT MainWindow::OnKeyboardHook(UINT, WPARAM vk_code, LPARAM flags, BOOL&) {
     if (vk_code == '0') {
       ShowWindowAsync(SW_HIDE);
     } else {
-      auto index = vk_code - '1';
+      auto index = (int) (vk_code - '1');
       if (IsValidIndex(index)) {
         contexts_[index]->DisplayIndicator();
       }

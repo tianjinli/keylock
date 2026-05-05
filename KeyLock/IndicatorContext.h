@@ -153,9 +153,10 @@ private:
   SHORT hud_display_duration_{1}; // HUD显示持续时间
   CPoint hud_offset_{0, 0}; // 桌面图像显示偏移量
   uint32_t hud_alignment_ = static_cast<uint32_t>(Alignment::HC); // 指示器对齐方式
-  bool sound_muted_{true}; // 音效是否静音
-  CString lock_key_sound_; // 锁定时音效
-  CString unlock_key_sound_; // 未锁定时音效
+  bool sound_muted_{true}; // 按键音效是否静音
+  bool icon_visible_{true}; // 托盘图标是否可见
+  CString lock_key_sound_; // 锁定时按键音效
+  CString unlock_key_sound_; // 未锁定时按键音效
   UINT_PTR auto_restore_timer_id_{0}; // 自动恢复计时器ID
   HWND window_handle_; // 主窗口句柄
 
